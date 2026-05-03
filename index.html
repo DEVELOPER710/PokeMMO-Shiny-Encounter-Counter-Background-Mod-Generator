@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  h1 {
+    text-align: center;
+  }
+
+  body {
+    background-color: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    text-align: center;
+  }
+
+  input, button {
+    background-color: #111;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 6px 10px;
+    margin: 4px;
+  }
+
+  button:hover {
+    background-color: #222;
+    cursor: pointer;
+  }
+
+  img {
+    background-color: #000; /* keeps preview clean */
+  }
+</style>
+
+  <title>PokeMMO Custom Encounter Counter Mod Generator</title>
+</head>
+
+<body>
+
+<h1>PokeMMO Shiny Encounter Counter Background Mod Generator - maindev</h1>
+
+<h2>Enter Pokémon Name</h2>
+<input type="text" id="pokeName" placeholder="e.g. Bulbasaur">
+<button onclick="loadPreview()">Load Preview</button>
+<button onclick="processZip()">Download Mod</button>
+
+<br><br>
+
+<img id="preview" src="" alt="Preview will appear here" width="150">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+let cachedImageBlob = null;
+
+function formatName(name) {
+    return name
+        .toLowerCase()
+        .split(" ")
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join("%20");
+}
+
+async function loadPreview() {
+    const name = document.getElementById("pokeName").value.trim();
+
+    if (!name) {
+        alert("Enter a Pokémon name");
+        return;
+    }
+
+    const formatted = formatName(name);
+    const imageUrl = `https://raw.githubusercontent.com/sphexidecimal/psycord-static/main/sprites_front/Shiny%20${formatted}.png`;
+
+    try {
+        console.log("Fetching image:", imageUrl);
+
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+            throw new Error("Image not found");
+        }
+
+        const blob = await response.blob();
+
+        const img = new Image();
+        const imgURL = URL.createObjectURL(blob);
+
+        img.onload = () => {
+            // Create canvas with required size
+            const canvas = document.createElement("canvas");
+            canvas.width = 210;
+            canvas.height = 215;
+
+            const ctx = canvas.getContext("2d");
+
+            // Stretch image to fit
+            ctx.drawImage(img, 0, 0, 210, 215);
+
+            // Convert to blob
+            canvas.toBlob((resizedBlob) => {
+                cachedImageBlob = resizedBlob;
+
+                // Show preview
+                const previewURL = URL.createObjectURL(resizedBlob);
+                document.getElementById("preview").src = previewURL;
+            }, "image/png");
+        };
+
+        img.src = imgURL;
+
+    } catch (err) {
+        console.error(err);
+        alert("Could not load preview. Check name.");
+    }
+}
+
+async function processZip() {
+    const name = document.getElementById("pokeName").value.trim();
+
+    if (!name) {
+        alert("Enter a Pokémon name");
+        return;
+    }
+
+    if (!cachedImageBlob) {
+        alert("Load preview first!");
+        return;
+    }
+
+    try {
+        console.log("Fetching ZIP...");
+
+        const zipResponse = await fetch("encounter-mod.zip");
+        if (!zipResponse.ok) {
+            throw new Error("ZIP file not found");
+        }
+
+        const zipData = await zipResponse.arrayBuffer();
+        const zip = await JSZip.loadAsync(zipData);
+
+        // Replace file inside zip
+        zip.file("res/res/pic2.png", cachedImageBlob);
+
+        console.log("Generating ZIP...");
+
+        const newZip = await zip.generateAsync({ type: "blob" });
+
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(newZip);
+        link.download = `${name}_mod.zip`;
+        link.click();
+
+    } catch (err) {
+        console.error("FULL ERROR:", err);
+        alert(err.message);
+    }
+}
+</script>
+
+</body>
+</html>
